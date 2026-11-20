@@ -1,0 +1,2034 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Multi-Subject Static GK & Study Hub</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Merriweather:ital,wght@0,400;0,700;1,400&display=swap" rel="stylesheet" />
+  <style>
+    body {
+      font-family: 'Inter', sans-serif;
+      background-color: #f8fafc;
+      color: #0f172a;
+    }
+    .font-book-serif {
+      font-family: 'Merriweather', Georgia, serif;
+    }
+    .cloze-blur {
+      filter: blur(5px);
+      background-color: rgba(99, 102, 241, 0.16);
+      border-radius: 4px;
+      padding: 0 4px;
+      cursor: pointer;
+      transition: filter 0.2s ease, background-color 0.2s ease;
+      user-select: none;
+    }
+    .cloze-blur.revealed {
+      filter: none;
+      background-color: rgba(16, 185, 129, 0.18);
+      user-select: text;
+    }
+    .custom-scrollbar::-webkit-scrollbar {
+      width: 6px;
+      height: 6px;
+    }
+    .custom-scrollbar::-webkit-scrollbar-track {
+      background: #f1f5f9;
+      border-radius: 9999px;
+    }
+    .custom-scrollbar::-webkit-scrollbar-thumb {
+      background: #cbd5e1;
+      border-radius: 9999px;
+    }
+    .custom-scrollbar::-webkit-scrollbar-thumb:hover {
+      background: #94a3b8;
+    }
+    @keyframes shake {
+      0%, 100% { transform: translateX(0); }
+      20%, 60% { transform: translateX(-6px); }
+      40%, 80% { transform: translateX(6px); }
+    }
+    .animate-shake {
+      animation: shake 0.35s ease-in-out;
+    }
+  </style>
+</head>
+<body class="min-h-screen flex flex-col">
+
+  <!-- STRICT PIN VERIFICATION GATE OVERLAY (No "Remember Me" option) -->
+  <div id="pinLockOverlay" class="fixed inset-0 z-50 bg-slate-900 flex items-center justify-center p-4">
+    <div id="pinCard" class="bg-white rounded-3xl shadow-2xl max-w-sm w-full p-7 text-center space-y-5 border border-slate-200">
+      <div class="w-14 h-14 rounded-2xl bg-indigo-600 text-white flex items-center justify-center mx-auto shadow-md text-2xl">
+        🔒
+      </div>
+      <div>
+        <h2 class="text-xl font-extrabold text-slate-900">Study Hub Locked</h2>
+        <p class="text-xs text-slate-500 mt-1">Enter your Google Sheet PIN to unlock notes</p>
+      </div>
+
+      <form id="pinUnlockForm" class="space-y-4">
+        <input
+          id="pinInput"
+          type="password"
+          inputmode="numeric"
+          pattern="[0-9]*"
+          maxlength="8"
+          autocomplete="off"
+          placeholder="••••"
+          required
+          class="w-full text-center tracking-[0.5em] text-2xl font-extrabold rounded-2xl border-2 border-slate-300 bg-slate-50 px-4 py-3 text-slate-900 focus:border-indigo-600 focus:bg-white focus:outline-none transition"
+        />
+
+        <p id="pinErrorText" class="hidden text-xs font-semibold text-rose-600"></p>
+
+        <button
+          id="pinUnlockBtn"
+          type="submit"
+          class="w-full py-3 rounded-2xl bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-sm shadow-sm transition active:scale-98 disabled:opacity-50"
+        >
+          Unlock Study Hub
+        </button>
+      </form>
+
+      <p class="text-[11px] text-slate-400">
+        Verified live via Google Sheets • Auto-locks after 5 min idle
+      </p>
+    </div>
+  </div>
+
+  <!-- MAIN APPLICATION SHELL (Hidden until PIN verified) -->
+  <div id="appShell" class="hidden min-h-screen flex flex-col">
+
+    <!-- Top Navigation Bar (Clean: Status, Sync, Change PIN, Lock) -->
+    <header class="bg-white border-b border-slate-200 sticky top-0 z-30 shadow-sm">
+      <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-3.5 flex flex-wrap items-center justify-between gap-3">
+        <div class="flex items-center gap-3">
+          <div class="w-10 h-10 rounded-xl bg-indigo-600 text-white flex items-center justify-center font-extrabold text-lg shadow-sm">
+            GK
+          </div>
+          <div>
+            <h1 class="text-lg sm:text-xl font-bold text-slate-900 leading-tight">Static GK & Study Hub</h1>
+            <p class="text-xs text-slate-500">Live Google Sheets Sync • Active Recall & Smart MCQ</p>
+          </div>
+        </div>
+
+        <!-- Connection Status & Controls -->
+        <div class="flex flex-wrap items-center gap-2">
+          <div id="connectionBadge" class="inline-flex items-center gap-2 px-3 py-1.5 rounded-full text-xs font-medium bg-amber-50 text-amber-700 border border-amber-200">
+            <span id="statusDot" class="w-2 h-2 rounded-full bg-amber-500 animate-pulse"></span>
+            <span id="statusText">Connecting...</span>
+          </div>
+
+          <button id="syncBtn" type="button" class="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs sm:text-sm font-semibold bg-indigo-600 hover:bg-indigo-700 text-white shadow-sm transition active:scale-95">
+            <span>↻</span> Sync Sheet
+          </button>
+
+          <button id="openChangePinBtn" type="button" class="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs sm:text-sm font-medium bg-slate-100 hover:bg-slate-200 text-slate-700 transition">
+            <span>🔑</span> Change PIN
+          </button>
+
+          <button id="lockAppBtn" type="button" class="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs sm:text-sm font-semibold bg-rose-50 hover:bg-rose-100 text-rose-700 border border-rose-200 transition">
+            <span>🔒</span> Lock
+          </button>
+        </div>
+      </div>
+    </header>
+
+    <!-- Main Workspace -->
+    <main class="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-6 space-y-6">
+
+      <!-- Diagnostic Banner -->
+      <div id="diagnosticBanner" class="hidden rounded-2xl bg-amber-50 border border-amber-200 p-4 text-xs sm:text-sm text-amber-900 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+        <div>
+          <p class="font-semibold">Using Cached / Built-In Preview Data</p>
+          <p id="diagnosticDetail" class="text-amber-800 mt-0.5">Could not reach Google Apps Script from this environment.</p>
+        </div>
+        <button id="retrySyncBtn" type="button" class="shrink-0 px-3.5 py-2 rounded-xl bg-amber-600 hover:bg-amber-700 text-white font-semibold text-xs transition">
+          Retry Connection
+        </button>
+      </div>
+
+      <!-- Filter & Mode Controls Card -->
+      <section class="bg-white rounded-2xl border border-slate-200 shadow-sm p-4 sm:p-5 space-y-4">
+        <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+          <!-- 1. Select Subject (or Book in Book Reader mode) -->
+          <div>
+            <label id="subjectSelectLabel" for="subjectSelect" class="block text-xs font-semibold uppercase tracking-wider text-slate-500 mb-1.5">
+              1. Subject (Sheet Tab)
+            </label>
+            <select id="subjectSelect" class="w-full rounded-xl border border-slate-300 bg-slate-50 px-3.5 py-2.5 text-sm font-medium text-slate-800 focus:border-indigo-500 focus:bg-white focus:outline-none transition">
+            </select>
+          </div>
+
+          <!-- 2. Select Chapter / Topic -->
+          <div>
+            <label id="chapterSelectLabel" for="chapterSelect" class="block text-xs font-semibold uppercase tracking-wider text-slate-500 mb-1.5">
+              2. Chapter / Topic
+            </label>
+            <select id="chapterSelect" class="w-full rounded-xl border border-slate-300 bg-slate-50 px-3.5 py-2.5 text-sm font-medium text-slate-800 focus:border-indigo-500 focus:bg-white focus:outline-none transition">
+            </select>
+          </div>
+
+          <!-- 3. Search Inside Topic -->
+          <div>
+            <label for="searchInput" class="block text-xs font-semibold uppercase tracking-wider text-slate-500 mb-1.5">
+              3. Quick Search
+            </label>
+            <input id="searchInput" type="text" placeholder="Filter questions or answers..." class="w-full rounded-xl border border-slate-300 bg-slate-50 px-3.5 py-2.5 text-sm text-slate-800 placeholder-slate-400 focus:border-indigo-500 focus:bg-white focus:outline-none transition" />
+          </div>
+
+          <!-- 4. Priority & Reveal -->
+          <div id="qaQuickActionsBox">
+            <label class="block text-xs font-semibold uppercase tracking-wider text-slate-500 mb-1.5">
+              4. Priority & Reveal
+            </label>
+            <div class="flex items-center gap-2">
+              <button id="onlyImpBtn" type="button" class="flex-1 px-3 py-2.5 rounded-xl text-xs font-semibold border border-slate-300 bg-slate-50 text-slate-700 hover:bg-slate-100 transition">
+                ★ Important Only
+              </button>
+              <button id="revealAllBtn" type="button" class="flex-1 px-3 py-2.5 rounded-xl text-xs font-semibold border border-indigo-200 bg-indigo-50 text-indigo-700 hover:bg-indigo-100 transition">
+                Show All Answers
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <!-- Mode Switcher Tabs + Stats Summary -->
+        <div class="pt-3 border-t border-slate-100 flex flex-wrap items-center justify-between gap-3">
+          <div class="inline-flex flex-wrap rounded-xl bg-slate-100 p-1 gap-1">
+            <button id="tabRevisionBtn" type="button" class="px-4 py-2 rounded-lg text-xs sm:text-sm font-semibold bg-white text-indigo-600 shadow-sm transition">
+              📖 Revision Table
+            </button>
+            <button id="tabQuizBtn" type="button" class="px-4 py-2 rounded-lg text-xs sm:text-sm font-semibold text-slate-600 hover:text-slate-900 transition">
+              🎯 MCQ Practice Test
+            </button>
+            <button id="tabBookBtn" type="button" class="px-4 py-2 rounded-lg text-xs sm:text-sm font-semibold text-slate-600 hover:text-slate-900 transition">
+              📚 Book Reader
+            </button>
+            <button id="tabTrackerBtn" type="button" class="px-4 py-2 rounded-lg text-xs sm:text-sm font-semibold text-slate-600 hover:text-slate-900 transition">
+              📊 Progress Tracker
+            </button>
+          </div>
+
+          <div class="flex flex-wrap items-center gap-2.5 text-xs text-slate-600">
+            <span class="px-2.5 py-1 rounded-lg bg-slate-100 font-medium">
+              Showing: <strong id="countShown" class="text-slate-900">0</strong> items
+            </span>
+            <span class="px-2.5 py-1 rounded-lg bg-amber-50 text-amber-800 border border-amber-200 font-medium">
+              ★ Starred: <strong id="countStarred">0</strong>
+            </span>
+            <span class="px-2.5 py-1 rounded-lg bg-emerald-50 text-emerald-800 border border-emerald-200 font-medium">
+              ✅ Chapters Done: <strong id="countChaptersDone">0 / 0</strong>
+            </span>
+          </div>
+        </div>
+      </section>
+
+      <!-- VIEW 1: REVISION TABLE -->
+      <section id="revisionView" class="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
+        <div class="overflow-x-auto custom-scrollbar">
+          <table class="w-full text-left border-collapse">
+            <thead>
+              <tr class="bg-slate-50 border-b border-slate-200 text-xs font-bold uppercase tracking-wider text-slate-500">
+                <th class="py-3.5 px-4 w-16 text-center">SL</th>
+                <th class="py-3.5 px-4 w-24 text-center">Priority</th>
+                <th class="py-3.5 px-4 min-w-[220px]">Question / Prompt</th>
+                <th class="py-3.5 px-4 min-w-[260px]">Answer (Click to Reveal)</th>
+              </tr>
+            </thead>
+            <tbody id="revisionTableBody" class="divide-y divide-slate-100 text-sm">
+            </tbody>
+          </table>
+        </div>
+        <div id="emptyState" class="hidden py-12 px-4 text-center text-slate-500">
+          <p class="text-base font-semibold text-slate-700">No matching questions found</p>
+          <p class="text-xs mt-1">Try clearing your search filter or switching chapters.</p>
+        </div>
+      </section>
+
+      <!-- VIEW 2: SMART MCQ PRACTICE TEST -->
+      <section id="quizView" class="hidden bg-white rounded-2xl border border-slate-200 shadow-sm p-5 sm:p-8 max-w-3xl mx-auto">
+        <div id="quizContainer" class="space-y-6">
+          <div class="flex flex-wrap items-center justify-between gap-3 border-b border-slate-100 pb-4">
+            <div>
+              <div class="flex flex-wrap items-center gap-2">
+                <span id="quizBadge" class="inline-block px-2.5 py-1 rounded-lg bg-indigo-50 text-indigo-700 text-xs font-bold uppercase tracking-wide">
+                  Question 1 of 10
+                </span>
+                <button id="unmasteredOnlyBtn" type="button" class="px-2.5 py-1 rounded-lg text-xs font-semibold border border-slate-300 bg-slate-50 text-slate-700 hover:bg-slate-100 transition">
+                  🎯 Unmastered Only: OFF
+                </button>
+              </div>
+              <h2 id="quizChapterTitle" class="text-xs text-slate-500 mt-1.5">Chapter Name</h2>
+            </div>
+            <div class="text-right">
+              <span class="text-xs text-slate-500 block">Score</span>
+              <span id="quizScoreText" class="text-lg font-extrabold text-emerald-600">0 / 0</span>
+            </div>
+          </div>
+
+          <div>
+            <h3 id="quizQuestionText" class="text-lg sm:text-xl font-bold text-slate-900 leading-snug">
+              Loading question...
+            </h3>
+            <p id="quizCrossTabBadge" class="hidden mt-2 inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md bg-purple-50 text-purple-700 border border-purple-200 text-xs font-medium"></p>
+          </div>
+
+          <div id="quizOptionsGrid" class="grid grid-cols-1 gap-3">
+          </div>
+
+          <div class="pt-4 border-t border-slate-100 flex items-center justify-between gap-3">
+            <button id="quizRestartBtn" type="button" class="px-4 py-2.5 rounded-xl text-xs sm:text-sm font-semibold bg-slate-100 hover:bg-slate-200 text-slate-700 transition">
+              ↻ Restart Quiz
+            </button>
+            <button id="quizNextBtn" type="button" class="px-5 py-2.5 rounded-xl text-xs sm:text-sm font-semibold bg-indigo-600 hover:bg-indigo-700 text-white shadow-sm transition disabled:opacity-40" disabled>
+              Next Question →
+            </button>
+          </div>
+        </div>
+      </section>
+
+      <!-- VIEW 3: CHAPTER & TOPIC PROGRESS TRACKER -->
+      <section id="trackerView" class="hidden space-y-5">
+        <div class="bg-white rounded-2xl border border-slate-200 shadow-sm p-5 flex flex-wrap items-center justify-between gap-4">
+          <div>
+            <h2 id="trackerSubjectHeading" class="text-base sm:text-lg font-bold text-slate-900">Subject Progress Overview</h2>
+            <p id="trackerSubjectSubtext" class="text-xs text-slate-500 mt-0.5">Track remaining chapters, quiz mastery, or reset progress when revising again.</p>
+          </div>
+
+          <div class="flex flex-wrap items-center gap-2">
+            <button id="markAllChaptersBtn" type="button" class="px-3.5 py-2 rounded-xl text-xs font-semibold bg-emerald-50 hover:bg-emerald-100 text-emerald-700 border border-emerald-200 transition">
+              ✅ Mark All Done
+            </button>
+            <button id="resetSubjectProgressBtn" type="button" class="px-3.5 py-2 rounded-xl text-xs font-semibold bg-rose-50 hover:bg-rose-100 text-rose-700 border border-rose-200 transition">
+              ↻ Reset Subject Progress
+            </button>
+          </div>
+        </div>
+
+        <div id="trackerChaptersGrid" class="grid grid-cols-1 md:grid-cols-2 gap-4">
+        </div>
+      </section>
+
+      <!-- VIEW 4: DIGITAL BOOK READER (Google Docs + Comfort Themes + Auto-Bookmark + Highlights/Active Reading) -->
+      <section id="bookReaderView" class="hidden space-y-4">
+        <!-- E-Reader Toolbar (Features 2, 3 & 4) -->
+        <div class="bg-white rounded-2xl border border-slate-200 shadow-sm p-3.5 sm:p-4 flex flex-wrap items-center justify-between gap-3">
+          <!-- Feature 2: Reading Theme & Font Comfort Controls -->
+          <div class="flex flex-wrap items-center gap-2">
+            <div class="inline-flex rounded-xl bg-slate-100 p-1 gap-1">
+              <button type="button" data-book-theme="light" class="book-theme-btn px-2.5 py-1.5 rounded-lg text-xs font-semibold bg-white text-slate-900 shadow-2xs transition">
+                ☀️ Light
+              </button>
+              <button type="button" data-book-theme="sepia" class="book-theme-btn px-2.5 py-1.5 rounded-lg text-xs font-semibold text-slate-600 hover:text-slate-900 transition">
+                📜 Sepia
+              </button>
+              <button type="button" data-book-theme="dark" class="book-theme-btn px-2.5 py-1.5 rounded-lg text-xs font-semibold text-slate-600 hover:text-slate-900 transition">
+                🌙 Dark
+              </button>
+            </div>
+
+            <div class="inline-flex items-center rounded-xl border border-slate-200 bg-slate-50 overflow-hidden">
+              <button id="bookFontDecBtn" type="button" class="px-2.5 py-1.5 text-xs font-bold text-slate-700 hover:bg-slate-200 transition">A-</button>
+              <span id="bookFontSizeLabel" class="px-2 text-[11px] font-semibold text-slate-500">17px</span>
+              <button id="bookFontIncBtn" type="button" class="px-2.5 py-1.5 text-xs font-bold text-slate-700 hover:bg-slate-200 transition">A+</button>
+            </div>
+
+            <button id="bookFontFamilyBtn" type="button" class="px-3 py-1.5 rounded-xl text-xs font-semibold border border-slate-200 bg-slate-50 hover:bg-slate-100 text-slate-700 transition">
+              Aa Serif
+            </button>
+          </div>
+
+          <!-- Feature 3 & 4: Resume Bookmark, Highlights Digest & Active Reading Mask -->
+          <div class="flex flex-wrap items-center gap-2">
+            <button id="bookResumeBookmarkBtn" type="button" class="hidden px-3 py-1.5 rounded-xl text-xs font-semibold bg-indigo-50 hover:bg-indigo-100 text-indigo-700 border border-indigo-200 transition">
+              🔖 Resume Bookmark
+            </button>
+            <button id="bookHighlightsOnlyBtn" type="button" class="px-3 py-1.5 rounded-xl text-xs font-semibold border border-slate-200 bg-slate-50 hover:bg-slate-100 text-slate-700 transition">
+              ★ Highlights Only
+            </button>
+            <button id="bookClozeMaskBtn" type="button" class="px-3 py-1.5 rounded-xl text-xs font-semibold border border-slate-200 bg-slate-50 hover:bg-slate-100 text-slate-700 transition">
+              👁 Mask Key Terms: OFF
+            </button>
+          </div>
+        </div>
+
+        <!-- Book Page Container -->
+        <article id="bookPageSurface" class="rounded-3xl border border-slate-200 bg-white text-slate-900 shadow-sm p-6 sm:p-10 max-w-4xl mx-auto transition-colors duration-200">
+          <div id="bookChapterHeader" class="border-b border-current/10 pb-5 mb-6 flex flex-wrap items-start justify-between gap-3">
+            <div>
+              <span id="bookSubtitleBadge" class="inline-block text-xs font-bold uppercase tracking-wider text-indigo-600 mb-1">
+                Book Name
+              </span>
+              <h2 id="bookChapterHeading" class="text-2xl sm:text-3xl font-extrabold leading-tight">
+                Chapter Title
+              </h2>
+              <p id="bookReadMeta" class="text-xs opacity-65 mt-1.5">~1 min read</p>
+            </div>
+            <button id="saveBookmarkNowBtn" type="button" class="px-3 py-1.5 rounded-xl text-xs font-semibold border border-current/15 hover:bg-indigo-500/10 transition">
+              🔖 Bookmark Spot
+            </button>
+          </div>
+
+          <div id="bookContentBody" class="space-y-4 leading-relaxed">
+          </div>
+
+          <!-- Chapter Page Turn Navigation -->
+          <div class="mt-10 pt-5 border-t border-current/10 flex items-center justify-between gap-3">
+            <button id="bookPrevChapterBtn" type="button" class="px-4 py-2.5 rounded-xl text-xs sm:text-sm font-semibold border border-current/15 hover:bg-indigo-500/10 transition disabled:opacity-40">
+              ← Previous Chapter
+            </button>
+            <span id="bookChapterCounter" class="text-xs font-semibold opacity-70">Chapter 1 of 1</span>
+            <button id="bookNextChapterBtn" type="button" class="px-4 py-2.5 rounded-xl text-xs sm:text-sm font-semibold bg-indigo-600 hover:bg-indigo-700 text-white shadow-sm transition disabled:opacity-40">
+              Next Chapter →
+            </button>
+          </div>
+        </article>
+      </section>
+
+    </main>
+  </div>
+
+  <!-- CHANGE PIN MODAL -->
+  <div id="changePinModal" class="hidden fixed inset-0 z-50 bg-slate-900/50 backdrop-blur-xs flex items-center justify-center p-4">
+    <div class="bg-white rounded-2xl border border-slate-200 shadow-xl max-w-md w-full p-6 space-y-4">
+      <div class="flex items-center justify-between">
+        <h3 class="text-lg font-bold text-slate-900">Change Security PIN</h3>
+        <button id="closeChangePinBtn" type="button" class="w-8 h-8 rounded-lg text-slate-400 hover:text-slate-700 hover:bg-slate-100 flex items-center justify-center">
+          ✕
+        </button>
+      </div>
+      <p class="text-xs text-slate-600 leading-relaxed">
+        Your new PIN (4–8 digits) will be saved directly to your Google Sheet (<code class="bg-slate-100 px-1.5 py-0.5 rounded text-indigo-600 font-semibold">_AppProgress</code>) and synced across all your devices.
+      </p>
+      <form id="changePinForm" class="space-y-3">
+        <div>
+          <label class="block text-xs font-semibold text-slate-600 mb-1">Current PIN</label>
+          <input id="oldPinInput" type="password" inputmode="numeric" pattern="[0-9]*" maxlength="8" required placeholder="••••" class="w-full rounded-xl border border-slate-300 px-3.5 py-2.5 text-sm font-bold tracking-widest focus:border-indigo-500 focus:outline-none" />
+        </div>
+        <div>
+          <label class="block text-xs font-semibold text-slate-600 mb-1">New PIN (4 to 8 digits)</label>
+          <input id="newPinInput" type="password" inputmode="numeric" pattern="[0-9]{4,8}" maxlength="8" required placeholder="••••" class="w-full rounded-xl border border-slate-300 px-3.5 py-2.5 text-sm font-bold tracking-widest focus:border-indigo-500 focus:outline-none" />
+        </div>
+        <p id="changePinStatus" class="hidden text-xs font-semibold"></p>
+        <div class="flex items-center justify-end gap-2 pt-2">
+          <button id="cancelChangePinBtn" type="button" class="px-3.5 py-2 rounded-xl text-xs font-semibold text-slate-600 hover:bg-slate-100">
+            Cancel
+          </button>
+          <button id="submitChangePinBtn" type="submit" class="px-4 py-2 rounded-xl text-xs sm:text-sm font-semibold bg-indigo-600 hover:bg-indigo-700 text-white shadow-sm">
+            Save New PIN
+          </button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- Toast Notification -->
+  <div id="toastBox" class="fixed bottom-5 right-5 z-50 hidden max-w-sm rounded-xl bg-slate-900 text-white px-4 py-3 text-xs sm:text-sm font-medium shadow-lg">
+  </div>
+
+  <script>
+    // Safe Storage Wrapper (prevents SecurityError in sandboxed iframes)
+    const safeStorage = {
+      get(key) {
+        try { return window.localStorage.getItem(key); } catch (e) { return null; }
+      },
+      set(key, val) {
+        try { window.localStorage.setItem(key, val); } catch (e) {}
+      }
+    };
+
+    // Locked Google Apps Script Web App URL
+    const BACKEND_URL = "https://script.google.com/macros/s/AKfycbw001Jx3gyiW2isvSjaoWxcgFB7-faCsxGCJSaNVQ3vrOOt22jEnhh9zpZj5TDbPsqZ/exec";
+    const LS_KEYS = {
+      db: "gk_hub_sheets_db_v5",
+      books: "gk_hub_books_db_v5",
+      imp: "gk_hub_importance_v5",
+      stats: "gk_hub_stats_v5",
+      chaptersDone: "gk_hub_chapters_done_v5",
+      bookHighlights: "gk_hub_book_highlights_v5",
+      bookBookmark: "gk_hub_book_bookmark_v5",
+      bookPrefs: "gk_hub_book_prefs_v5"
+    };
+
+    // Built-in fallback dataset (used only if offline/preview blocks Google Scripts)
+    const SAMPLE_STUDY_DB = {
+      "Static GK (Sample)": [
+        {
+          topic: "Nick Name of Indian Places",
+          items: [
+            { q: "State of Five Rivers", a: "Punjab" },
+            { q: "City of Weavers", a: "Panipat" },
+            { q: "City of Lakes", a: "Srinagar" },
+            { q: "Pink City", a: "Jaipur" },
+            { q: "Gateway of India", a: "Mumbai" }
+          ]
+        },
+        {
+          topic: "River Valley Projects",
+          items: [
+            { q: "Bhakra Nangal Project", a: "Sutlej • Punjab • Highest in India. Reservoir: Gobind Sagar Lake." },
+            { q: "Mandi Project", a: "Beas • Himachal Pradesh" },
+            { q: "Chambal Valley Project", a: "Chambal • M.P. & Rajasthan • Includes Gandhi Sagar, Rana Pratap Sagar, Jawahar Sagar Dam." },
+            { q: "Damodar Valley Project", a: "Damodar • Bihar • Based on Tennessee Valley Project, USA." },
+            { q: "Hirakud Project", a: "Mahanadi • Orissa • World’s longest dam: 4801 m." },
+            { q: "Rihand Project", a: "Son • Mirzapur • Reservoir: Govind Vallabh Pant reservoir." },
+            { q: "Kosi Project", a: "Kosi • Bihar" },
+            { q: "Mayurakshi Project", a: "Mayurakshi • West Bengal" },
+            { q: "Kakrapar Project", a: "Tapti • Gujarat" },
+            { q: "Nizamsagar Project", a: "Manjra • Andhra Pradesh" },
+            { q: "Nagarjuna Sagar Project", a: "Krishna • Andhra Pradesh" },
+            { q: "Tungabhadra Project", a: "Tungabhadra • Andhra Pradesh & Karnataka" }
+          ]
+        },
+        {
+          topic: "Wildlife Sanctuaries and National Parks in India",
+          items: [
+            { q: "Gir National Park", a: "Junagarh, Gujarat" },
+            { q: "Jim Corbett National Park", a: "Nainital, Uttarakhand" },
+            { q: "Kaziranga National Park", a: "Jorhat, Assam" },
+            { q: "Ranthambore National Park", a: "Sawai Madhopur, Rajasthan" },
+            { q: "Dudhwa National Park", a: "Lakhimpur Kheri, U.P." }
+          ]
+        }
+      ]
+    };
+
+    // Auth & Security State (Strictly in-memory — never persisted across page reloads)
+    let isUnlocked = false;
+    let failedPinAttempts = 0;
+    let lockoutUntil = 0;
+    let idleTimer = null;
+    const IDLE_LOCK_MS = 5 * 60 * 1000; // 5 minutes inactivity auto-lock
+
+    // Study Data & Progress State
+    let studyDb = (() => {
+      try {
+        const cached = safeStorage.get(LS_KEYS.db);
+        return cached ? JSON.parse(cached) : SAMPLE_STUDY_DB;
+      } catch (e) {
+        return SAMPLE_STUDY_DB;
+      }
+    })();
+
+    let importanceMap = (() => {
+      try { return JSON.parse(safeStorage.get(LS_KEYS.imp) || "{}"); } catch (e) { return {}; }
+    })();
+
+    let statsMap = (() => {
+      try { return JSON.parse(safeStorage.get(LS_KEYS.stats) || "{}"); } catch (e) { return {}; }
+    })();
+
+    let completedChaptersMap = (() => {
+      try { return JSON.parse(safeStorage.get(LS_KEYS.chaptersDone) || "{}"); } catch (e) { return {}; }
+    })();
+
+    let booksDb = (() => {
+      try { return JSON.parse(safeStorage.get(LS_KEYS.books) || "{}"); } catch (e) { return {}; }
+    })();
+
+    let bookHighlightsMap = (() => {
+      try { return JSON.parse(safeStorage.get(LS_KEYS.bookHighlights) || "{}"); } catch (e) { return {}; }
+    })();
+
+    let bookBookmark = (() => {
+      try { return JSON.parse(safeStorage.get(LS_KEYS.bookBookmark) || "null"); } catch (e) { return null; }
+    })();
+
+    let bookPrefs = (() => {
+      try {
+        return JSON.parse(safeStorage.get(LS_KEYS.bookPrefs) || '{"theme":"light","fontSize":17,"serif":false}');
+      } catch (e) {
+        return { theme: "light", fontSize: 17, serif: false };
+      }
+    })();
+
+    let crossSubjectLookup = {}; // normQ -> Set of Subject names (Option A badge)
+    let selectedSubject = "";
+    let selectedChapter = "__ALL__";
+    let selectedBook = "";
+    let selectedBookChapterIdx = 0;
+    let bookHighlightsOnly = false;
+    let bookClozeMask = false;
+    let searchQuery = "";
+    let onlyImportant = false;
+    let revealAll = false;
+    let revealedSet = new Set();
+    let activeMode = "revision"; // "revision" | "quiz" | "book" | "tracker"
+    let resetConfirmPending = false;
+    let resetConfirmTimer = null;
+
+    // Quiz State
+    let quizList = [];
+    let quizIndex = 0;
+    let quizScore = 0;
+    let quizAnswered = false;
+    let unmasteredOnly = false;
+
+    // DOM Elements
+    const subjectSelect = document.getElementById("subjectSelect");
+    const chapterSelect = document.getElementById("chapterSelect");
+    const searchInput = document.getElementById("searchInput");
+    const onlyImpBtn = document.getElementById("onlyImpBtn");
+    const revealAllBtn = document.getElementById("revealAllBtn");
+    const revisionTableBody = document.getElementById("revisionTableBody");
+    const emptyState = document.getElementById("emptyState");
+    const countShown = document.getElementById("countShown");
+    const countStarred = document.getElementById("countStarred");
+    const countChaptersDone = document.getElementById("countChaptersDone");
+
+    function showToast(msg) {
+      const box = document.getElementById("toastBox");
+      box.textContent = msg;
+      box.classList.remove("hidden");
+      clearTimeout(window._toastTimer);
+      window._toastTimer = setTimeout(() => box.classList.add("hidden"), 3200);
+    }
+
+    function escapeHtml(str) {
+      return String(str || "")
+        .replace(/&/g, "&amp;")
+        .replace(/</g, "&lt;")
+        .replace(/>/g, "&gt;")
+        .replace(/"/g, "&quot;")
+        .replace(/'/g, "&#39;");
+    }
+
+    function normalizeQuestion(q) {
+      return String(q || "").toLowerCase().replace(/\s+/g, " ").trim();
+    }
+
+    function makeItemKey(subject, topic, q) {
+      return `${subject}::${topic}::${q}`;
+    }
+
+    function makeChapterKey(subject, topic) {
+      return `${subject}::${topic}`;
+    }
+
+    // Build cross-tab duplicate index (Option A: "Also in: OtherTab" badge)
+    function rebuildCrossSubjectIndex() {
+      const map = {};
+      Object.keys(studyDb).forEach(sub => {
+        (studyDb[sub] || []).forEach(t => {
+          (t.items || []).forEach(item => {
+            const nq = normalizeQuestion(item.q);
+            if (!nq) return;
+            if (!map[nq]) map[nq] = new Set();
+            map[nq].add(sub);
+          });
+        });
+      });
+      crossSubjectLookup = map;
+    }
+
+    function getOtherSubjectsForQuestion(currentSubject, q) {
+      const nq = normalizeQuestion(q);
+      const subs = crossSubjectLookup[nq];
+      if (!subs || subs.size <= 1) return [];
+      return Array.from(subs).filter(s => s !== currentSubject);
+    }
+
+    // Dual-Mode Request Helper (Fetch + JSONP fallback)
+    async function callAppsScript(paramsObj) {
+      const queryParams = new URLSearchParams({ ...paramsObj, _t: String(Date.now()) });
+      const fullUrl = `${BACKEND_URL}?${queryParams.toString()}`;
+
+      try {
+        const res = await fetch(fullUrl, { method: "GET", redirect: "follow" });
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+        return await res.json();
+      } catch (fetchErr) {
+        return await new Promise((resolve, reject) => {
+          const cbName = "__gkSheetCb_" + Date.now() + "_" + Math.floor(Math.random() * 10000);
+          const script = document.createElement("script");
+          const timeoutId = setTimeout(() => {
+            cleanup();
+            reject(new Error("Connection timed out"));
+          }, 12000);
+
+          function cleanup() {
+            clearTimeout(timeoutId);
+            delete window[cbName];
+            if (script.parentNode) script.parentNode.removeChild(script);
+          }
+
+          window[cbName] = (data) => {
+            cleanup();
+            resolve(data);
+          };
+
+          script.onerror = () => {
+            cleanup();
+            reject(new Error("Could not reach Google Apps Script"));
+          };
+
+          script.src = `${fullUrl}&callback=${cbName}`;
+          document.body.appendChild(script);
+        });
+      }
+    }
+
+    // Strict PIN Verification & Lock Controls
+    function lockApp(reasonMsg) {
+      isUnlocked = false;
+      clearTimeout(idleTimer);
+      document.getElementById("appShell").classList.add("hidden");
+      document.getElementById("pinLockOverlay").classList.remove("hidden");
+      const pinInput = document.getElementById("pinInput");
+      const pinError = document.getElementById("pinErrorText");
+      pinInput.value = "";
+      if (reasonMsg) {
+        pinError.textContent = reasonMsg;
+        pinError.classList.remove("hidden");
+      } else {
+        pinError.classList.add("hidden");
+      }
+      setTimeout(() => pinInput.focus(), 50);
+    }
+
+    function unlockApp() {
+      isUnlocked = true;
+      failedPinAttempts = 0;
+      document.getElementById("pinLockOverlay").classList.add("hidden");
+      document.getElementById("appShell").classList.remove("hidden");
+      resetIdleTimer();
+      populateSubjects();
+      syncLiveBackend();
+    }
+
+    function resetIdleTimer() {
+      if (!isUnlocked) return;
+      clearTimeout(idleTimer);
+      idleTimer = setTimeout(() => {
+        lockApp("Session locked after 5 minutes of inactivity.");
+      }, IDLE_LOCK_MS);
+    }
+
+    ["click", "keydown", "touchstart", "scroll"].forEach(evt => {
+      window.addEventListener(evt, resetIdleTimer, { passive: true });
+    });
+
+    document.getElementById("pinUnlockForm").addEventListener("submit", async (e) => {
+      e.preventDefault();
+      const pinInput = document.getElementById("pinInput");
+      const pinError = document.getElementById("pinErrorText");
+      const pinBtn = document.getElementById("pinUnlockBtn");
+      const pinCard = document.getElementById("pinCard");
+
+      const now = Date.now();
+      if (now < lockoutUntil) {
+        const secs = Math.ceil((lockoutUntil - now) / 1000);
+        pinError.textContent = `Too many failed attempts. Wait ${secs}s.`;
+        pinError.classList.remove("hidden");
+        return;
+      }
+
+      const enteredPin = pinInput.value.trim();
+      if (!enteredPin) return;
+
+      pinBtn.disabled = true;
+      pinBtn.textContent = "Verifying with Sheet...";
+      pinError.classList.add("hidden");
+
+      try {
+        const res = await callAppsScript({ action: "verifyPin", pin: enteredPin });
+        if (res && res.status === "success" && res.valid === true) {
+          unlockApp();
+        } else {
+          failedPinAttempts++;
+          pinInput.value = "";
+          pinCard.classList.remove("animate-shake");
+          void pinCard.offsetWidth;
+          pinCard.classList.add("animate-shake");
+
+          if (failedPinAttempts >= 5) {
+            lockoutUntil = Date.now() + 30000;
+            failedPinAttempts = 0;
+            pinError.textContent = "5 incorrect attempts. Locked for 30 seconds.";
+          } else {
+            pinError.textContent = `Incorrect PIN (${5 - failedPinAttempts} attempts remaining).`;
+          }
+          pinError.classList.remove("hidden");
+        }
+      } catch (err) {
+        // Offline / Sandbox fallback if Google Apps Script is completely unreachable
+        if (enteredPin === "1234") {
+          unlockApp();
+          showToast("Offline/Preview mode: Unlocked with default PIN.");
+        } else {
+          pinError.textContent = "Offline mode: Could not reach Google Sheet to verify custom PIN.";
+          pinError.classList.remove("hidden");
+        }
+      } finally {
+        pinBtn.disabled = false;
+        pinBtn.textContent = "Unlock Study Hub";
+      }
+    });
+
+    document.getElementById("lockAppBtn").addEventListener("click", () => {
+      lockApp("App locked manually.");
+    });
+
+    // Change PIN Modal Handlers
+    const changePinModal = document.getElementById("changePinModal");
+    const changePinStatus = document.getElementById("changePinStatus");
+
+    document.getElementById("openChangePinBtn").addEventListener("click", () => {
+      document.getElementById("oldPinInput").value = "";
+      document.getElementById("newPinInput").value = "";
+      changePinStatus.classList.add("hidden");
+      changePinModal.classList.remove("hidden");
+    });
+
+    function closeChangePinModal() {
+      changePinModal.classList.add("hidden");
+    }
+
+    document.getElementById("closeChangePinBtn").addEventListener("click", closeChangePinModal);
+    document.getElementById("cancelChangePinBtn").addEventListener("click", closeChangePinModal);
+
+    document.getElementById("changePinForm").addEventListener("submit", async (e) => {
+      e.preventDefault();
+      const oldPin = document.getElementById("oldPinInput").value.trim();
+      const newPin = document.getElementById("newPinInput").value.trim();
+      const submitBtn = document.getElementById("submitChangePinBtn");
+
+      if (!/^\d{4,8}$/.test(newPin)) {
+        changePinStatus.textContent = "New PIN must be 4 to 8 digits.";
+        changePinStatus.className = "text-xs font-semibold text-rose-600";
+        changePinStatus.classList.remove("hidden");
+        return;
+      }
+
+      submitBtn.disabled = true;
+      submitBtn.textContent = "Saving to Sheet...";
+
+      try {
+        const res = await callAppsScript({ action: "changePin", oldPin, newPin });
+        if (res && res.status === "success") {
+          closeChangePinModal();
+          showToast("PIN updated in Google Sheet!");
+        } else {
+          changePinStatus.textContent = (res && res.message) || "Failed to update PIN.";
+          changePinStatus.className = "text-xs font-semibold text-rose-600";
+          changePinStatus.classList.remove("hidden");
+        }
+      } catch (err) {
+        changePinStatus.textContent = "Network error: Could not update PIN in Google Sheet.";
+        changePinStatus.className = "text-xs font-semibold text-rose-600";
+        changePinStatus.classList.remove("hidden");
+      } finally {
+        submitBtn.disabled = false;
+        submitBtn.textContent = "Save New PIN";
+      }
+    });
+
+    // Connection Status UI
+    function setConnectionStatus(state, text, detailMsg) {
+      const badge = document.getElementById("connectionBadge");
+      const dot = document.getElementById("statusDot");
+      const label = document.getElementById("statusText");
+      const diagBanner = document.getElementById("diagnosticBanner");
+      const diagDetail = document.getElementById("diagnosticDetail");
+
+      label.textContent = text;
+      badge.className = "inline-flex items-center gap-2 px-3 py-1.5 rounded-full text-xs font-medium border ";
+      dot.className = "w-2 h-2 rounded-full ";
+
+      if (state === "live") {
+        badge.className += "bg-emerald-50 text-emerald-700 border-emerald-200";
+        dot.className += "bg-emerald-500";
+        diagBanner.classList.add("hidden");
+      } else if (state === "syncing") {
+        badge.className += "bg-indigo-50 text-indigo-700 border-indigo-200";
+        dot.className += "bg-indigo-500 animate-pulse";
+      } else {
+        badge.className += "bg-amber-50 text-amber-800 border-amber-200";
+        dot.className += "bg-amber-500";
+        if (detailMsg) {
+          diagDetail.textContent = detailMsg;
+          diagBanner.classList.remove("hidden");
+        }
+      }
+    }
+
+    // Chapter Status Calculation Helper
+    function getChapterProgressStats(subject, topicObj) {
+      const items = topicObj.items || [];
+      const total = items.length;
+      let attempted = 0;
+      let mastered = 0;
+      let totalAttempts = 0;
+      let totalCorrect = 0;
+
+      items.forEach(it => {
+        const key = makeItemKey(subject, topicObj.topic, it.q);
+        const st = statsMap[key];
+        if (st && st.attempts > 0) {
+          attempted++;
+          totalAttempts += st.attempts;
+          totalCorrect += st.correct;
+          if (st.correct > 0) mastered++;
+        }
+      });
+
+      const chKey = makeChapterKey(subject, topicObj.topic);
+      const isManuallyDone = !!completedChaptersMap[chKey];
+      const isComplete = isManuallyDone || (total > 0 && mastered >= total);
+      const isStarted = !isComplete && attempted > 0;
+      const accuracy = totalAttempts > 0 ? Math.round((totalCorrect / totalAttempts) * 100) : 0;
+      const pct = isManuallyDone ? 100 : (total > 0 ? Math.round((mastered / total) * 100) : 0);
+
+      return { total, attempted, mastered, accuracy, pct, isManuallyDone, isComplete, isStarted };
+    }
+
+    function populateSubjects() {
+      rebuildCrossSubjectIndex();
+      if (activeMode === "book") {
+        populateBooksDropdown();
+        return;
+      }
+
+      document.getElementById("subjectSelectLabel").textContent = "1. Subject (Sheet Tab)";
+      document.getElementById("chapterSelectLabel").textContent = "2. Chapter / Topic";
+      document.getElementById("qaQuickActionsBox").classList.remove("opacity-40", "pointer-events-none");
+
+      const subjects = Object.keys(studyDb);
+      if (subjects.length === 0) return;
+
+      if (!selectedSubject || !studyDb[selectedSubject]) {
+        selectedSubject = subjects[0];
+      }
+
+      subjectSelect.innerHTML = subjects.map(sub =>
+        `<option value="${escapeHtml(sub)}" ${sub === selectedSubject ? "selected" : ""}>${escapeHtml(sub)}</option>`
+      ).join("");
+
+      populateChapters();
+    }
+
+    function populateBooksDropdown() {
+      document.getElementById("subjectSelectLabel").textContent = "1. Book / Doc Tab";
+      document.getElementById("chapterSelectLabel").textContent = "2. Book Chapter";
+      document.getElementById("qaQuickActionsBox").classList.add("opacity-40", "pointer-events-none");
+
+      const bookNames = Object.keys(booksDb);
+      if (bookNames.length === 0) {
+        subjectSelect.innerHTML = `<option value="">No Books Found in _Books Tab</option>`;
+        chapterSelect.innerHTML = `<option value="0">Add Google Doc URL in _Books sheet</option>`;
+        renderBookReader();
+        return;
+      }
+
+      if (!selectedBook || !booksDb[selectedBook]) {
+        selectedBook = bookNames[0];
+        selectedBookChapterIdx = 0;
+      }
+
+      subjectSelect.innerHTML = bookNames.map(b =>
+        `<option value="${escapeHtml(b)}" ${b === selectedBook ? "selected" : ""}>📚 ${escapeHtml(b)}</option>`
+      ).join("");
+
+      const chapters = booksDb[selectedBook] || [];
+      if (selectedBookChapterIdx >= chapters.length) selectedBookChapterIdx = 0;
+
+      chapterSelect.innerHTML = chapters.map((ch, idx) =>
+        `<option value="${idx}" ${idx === selectedBookChapterIdx ? "selected" : ""}>${idx + 1}. ${escapeHtml(ch.chapter)}</option>`
+      ).join("");
+
+      renderBookReader();
+    }
+
+    function populateChapters() {
+      if (activeMode === "book") {
+        populateBooksDropdown();
+        return;
+      }
+      const topics = studyDb[selectedSubject] || [];
+      const totalItems = topics.reduce((sum, t) => sum + (t.items ? t.items.length : 0), 0);
+      let doneCount = 0;
+
+      let html = `<option value="__ALL__">All Chapters (${totalItems} items)</option>`;
+      topics.forEach(t => {
+        const stats = getChapterProgressStats(selectedSubject, t);
+        if (stats.isComplete) doneCount++;
+        const icon = stats.isComplete ? "✅" : (stats.isStarted ? "⏳" : "⬜");
+        html += `<option value="${escapeHtml(t.topic)}" ${t.topic === selectedChapter ? "selected" : ""}>${icon} ${escapeHtml(t.topic)} (${stats.mastered}/${stats.total})</option>`;
+      });
+
+      chapterSelect.innerHTML = html;
+      countChaptersDone.textContent = `${doneCount} / ${topics.length}`;
+
+      if (selectedChapter !== "__ALL__" && !topics.some(t => t.topic === selectedChapter)) {
+        selectedChapter = "__ALL__";
+        chapterSelect.value = "__ALL__";
+      }
+
+      renderCurrentView();
+    }
+
+    function getFilteredItems() {
+      const topics = studyDb[selectedSubject] || [];
+      const result = [];
+
+      topics.forEach(t => {
+        if (selectedChapter !== "__ALL__" && t.topic !== selectedChapter) return;
+        (t.items || []).forEach(item => {
+          const key = makeItemKey(selectedSubject, t.topic, item.q);
+          const isImp = !!importanceMap[key];
+
+          if (onlyImportant && !isImp) return;
+
+          if (searchQuery) {
+            const qLower = searchQuery.toLowerCase();
+            const matchQ = item.q.toLowerCase().includes(qLower);
+            const matchA = item.a.toLowerCase().includes(qLower);
+            const matchT = t.topic.toLowerCase().includes(qLower);
+            if (!matchQ && !matchA && !matchT) return;
+          }
+
+          result.push({
+            key,
+            topic: t.topic,
+            q: item.q,
+            a: item.a,
+            isImp,
+            alsoIn: getOtherSubjectsForQuestion(selectedSubject, item.q)
+          });
+        });
+      });
+
+      result.sort((a, b) => (b.isImp ? 1 : 0) - (a.isImp ? 1 : 0));
+      return result;
+    }
+
+    function renderCurrentView() {
+      if (activeMode === "book") {
+        renderBookReader();
+        return;
+      }
+
+      const items = getFilteredItems();
+      countShown.textContent = items.length;
+      countStarred.textContent = Object.values(importanceMap).filter(Boolean).length;
+
+      const topics = studyDb[selectedSubject] || [];
+      const doneCount = topics.filter(t => getChapterProgressStats(selectedSubject, t).isComplete).length;
+      countChaptersDone.textContent = `${doneCount} / ${topics.length}`;
+
+      if (activeMode === "revision") {
+        renderRevisionTable(items);
+      } else if (activeMode === "quiz") {
+        startQuiz(items);
+      } else if (activeMode === "tracker") {
+        renderProgressTracker();
+      }
+    }
+
+    // VIEW 1: REVISION TABLE (with Option A Cross-Subject Badge)
+    function renderRevisionTable(items) {
+      if (items.length === 0) {
+        revisionTableBody.innerHTML = "";
+        emptyState.classList.remove("hidden");
+        return;
+      }
+      emptyState.classList.add("hidden");
+
+      revisionTableBody.innerHTML = items.map((item, idx) => {
+        const isRevealed = revealAll || revealedSet.has(item.key);
+        const rowBg = item.isImp ? "bg-amber-50/50" : "hover:bg-slate-50";
+        const alsoInBadge = item.alsoIn.length > 0
+          ? `<span class="inline-flex items-center gap-1 text-[11px] font-medium text-purple-700 bg-purple-50 border border-purple-200 px-2 py-0.5 rounded-md ml-1 mb-1">🔁 Also in: ${escapeHtml(item.alsoIn.join(", "))}</span>`
+          : "";
+
+        return `
+          <tr class="${rowBg} transition">
+            <td class="py-3.5 px-4 text-center font-semibold text-slate-400 text-xs">${idx + 1}</td>
+            <td class="py-3.5 px-4 text-center">
+              <button type="button" data-action="star" data-key="${escapeHtml(item.key)}"
+                class="px-2.5 py-1 rounded-full text-xs font-bold border transition ${
+                  item.isImp
+                    ? "bg-amber-100 text-amber-800 border-amber-300 shadow-2xs"
+                    : "bg-white text-slate-400 border-slate-200 hover:text-amber-600 hover:border-amber-200"
+                }">
+                ${item.isImp ? "★ IMP" : "☆ Imp"}
+              </button>
+            </td>
+            <td class="py-3.5 px-4">
+              <div class="flex flex-wrap items-center">
+                <span class="inline-block text-[11px] font-semibold text-indigo-600 bg-indigo-50 px-2 py-0.5 rounded-md mb-1">
+                  ${escapeHtml(item.topic)}
+                </span>
+                ${alsoInBadge}
+              </div>
+              <div class="font-semibold text-slate-900 leading-snug">${escapeHtml(item.q)}</div>
+            </td>
+            <td class="py-3.5 px-4">
+              ${
+                isRevealed
+                  ? `<div data-action="toggle-ans" data-key="${escapeHtml(item.key)}" class="cursor-pointer rounded-xl bg-emerald-50 border border-emerald-200 px-3.5 py-2 text-emerald-950 font-medium leading-relaxed">
+                      ${escapeHtml(item.a)}
+                    </div>`
+                  : `<button type="button" data-action="toggle-ans" data-key="${escapeHtml(item.key)}"
+                      class="w-full sm:w-auto px-4 py-2 rounded-xl bg-slate-100 hover:bg-indigo-50 text-slate-600 hover:text-indigo-700 border border-slate-200 hover:border-indigo-200 text-xs font-semibold transition">
+                      👁 Show Answer
+                    </button>`
+              }
+            </td>
+          </tr>
+        `;
+      }).join("");
+    }
+
+    // VIEW 2: HARD-MODE SMART MCQ ENGINE
+    function getAnswerPatternSignature(ans) {
+      const s = String(ans || "").trim();
+      const hasComma = s.includes(",");
+      const hasBullet = s.includes("•");
+      const hasDigits = /\d/.test(s);
+      const wordCount = s.split(/\s+/).length;
+      const lenBucket = wordCount <= 2 ? "short" : (wordCount <= 6 ? "med" : "long");
+      return `${hasComma ? "C" : ""}${hasBullet ? "B" : ""}${hasDigits ? "D" : ""}_${lenBucket}`;
+    }
+
+    function buildSmartDistractors(currentItem) {
+      const normCorrect = currentItem.a.toLowerCase().trim();
+      const targetSig = getAnswerPatternSignature(currentItem.a);
+      const chosen = [];
+      const seenNorm = new Set([normCorrect]);
+
+      function tryAddCandidate(ansText) {
+        if (chosen.length >= 3) return;
+        const clean = String(ansText || "").trim();
+        const norm = clean.toLowerCase();
+        if (!clean || seenNorm.has(norm)) return;
+        if (norm.includes(normCorrect) || normCorrect.includes(norm)) return;
+        seenNorm.add(norm);
+        chosen.push(clean);
+      }
+
+      // Priority 1: Same-Chapter answers first
+      const sameChapterPool = [];
+      (studyDb[selectedSubject] || []).forEach(t => {
+        if (t.topic === currentItem.topic) {
+          (t.items || []).forEach(it => sameChapterPool.push(it.a));
+        }
+      });
+      sameChapterPool.sort(() => Math.random() - 0.5).forEach(tryAddCandidate);
+
+      // Priority 2: Same-Subject answers with matching structural signature
+      if (chosen.length < 3) {
+        const formatMatchedPool = [];
+        const fallbackSubjectPool = [];
+        (studyDb[selectedSubject] || []).forEach(t => {
+          if (t.topic === currentItem.topic) return;
+          (t.items || []).forEach(it => {
+            if (getAnswerPatternSignature(it.a) === targetSig) {
+              formatMatchedPool.push(it.a);
+            } else {
+              fallbackSubjectPool.push(it.a);
+            }
+          });
+        });
+        formatMatchedPool.sort(() => Math.random() - 0.5).forEach(tryAddCandidate);
+        if (chosen.length < 3) {
+          fallbackSubjectPool.sort(() => Math.random() - 0.5).forEach(tryAddCandidate);
+        }
+      }
+
+      // Priority 3: Cross-subject format-matched pool if entire subject has < 4 rows
+      if (chosen.length < 3) {
+        const globalPool = [];
+        Object.keys(studyDb).forEach(sub => {
+          if (sub === selectedSubject) return;
+          (studyDb[sub] || []).forEach(t => {
+            (t.items || []).forEach(it => {
+              if (getAnswerPatternSignature(it.a) === targetSig) {
+                globalPool.push(it.a);
+              }
+            });
+          });
+        });
+        globalPool.sort(() => Math.random() - 0.5).forEach(tryAddCandidate);
+      }
+
+      return chosen;
+    }
+
+    function startQuiz(items) {
+      let pool = [...items];
+      if (unmasteredOnly) {
+        pool = pool.filter(it => !(statsMap[it.key] && statsMap[it.key].correct > 0));
+      }
+      quizList = pool.sort(() => Math.random() - 0.5);
+      quizIndex = 0;
+      quizScore = 0;
+      quizAnswered = false;
+      renderQuizQuestion();
+    }
+
+    function renderQuizQuestion() {
+      const badge = document.getElementById("quizBadge");
+      const chapterTitle = document.getElementById("quizChapterTitle");
+      const scoreText = document.getElementById("quizScoreText");
+      const qText = document.getElementById("quizQuestionText");
+      const crossBadge = document.getElementById("quizCrossTabBadge");
+      const optionsGrid = document.getElementById("quizOptionsGrid");
+      const nextBtn = document.getElementById("quizNextBtn");
+
+      if (quizList.length === 0) {
+        badge.textContent = unmasteredOnly ? "All Mastered!" : "No Questions";
+        chapterTitle.textContent = selectedSubject;
+        qText.textContent = unmasteredOnly
+          ? "🎉 You have already mastered every question in this filter! Turn off 'Unmastered Only' to practice again."
+          : "No questions available in the current filter.";
+        crossBadge.classList.add("hidden");
+        optionsGrid.innerHTML = "";
+        nextBtn.disabled = true;
+        return;
+      }
+
+      if (quizIndex >= quizList.length) {
+        badge.textContent = "Completed!";
+        chapterTitle.textContent = selectedSubject;
+        scoreText.textContent = `${quizScore} / ${quizList.length}`;
+        qText.textContent = `Quiz Finished! You scored ${quizScore} out of ${quizList.length} (${Math.round((quizScore / quizList.length) * 100)}%).`;
+        crossBadge.classList.add("hidden");
+        optionsGrid.innerHTML = "";
+        nextBtn.disabled = true;
+        populateChapters();
+        return;
+      }
+
+      const current = quizList[quizIndex];
+      quizAnswered = false;
+      nextBtn.disabled = true;
+
+      badge.textContent = `Question ${quizIndex + 1} of ${quizList.length}`;
+      chapterTitle.textContent = current.topic;
+      scoreText.textContent = `${quizScore} / ${quizIndex}`;
+      qText.textContent = current.q;
+
+      if (current.alsoIn && current.alsoIn.length > 0) {
+        crossBadge.textContent = `🔁 Also in: ${current.alsoIn.join(", ")}`;
+        crossBadge.classList.remove("hidden");
+      } else {
+        crossBadge.classList.add("hidden");
+      }
+
+      const distractors = buildSmartDistractors(current);
+      const choices = [current.a, ...distractors].sort(() => Math.random() - 0.5);
+
+      optionsGrid.innerHTML = choices.map((choice, i) => `
+        <button type="button" data-choice="${escapeHtml(choice)}"
+          class="quiz-option w-full text-left p-4 rounded-xl border border-slate-200 bg-slate-50 hover:bg-indigo-50 hover:border-indigo-300 text-sm font-medium text-slate-800 transition">
+          <span class="inline-block w-6 h-6 rounded-full bg-white border border-slate-300 text-center text-xs font-bold leading-5 mr-2.5 text-slate-600">
+            ${String.fromCharCode(65 + i)}
+          </span>
+          ${escapeHtml(choice)}
+        </button>
+      `).join("");
+    }
+
+    // Quiz Option Click & Navigation Listeners
+    document.getElementById("quizOptionsGrid").addEventListener("click", (e) => {
+      const btn = e.target.closest(".quiz-option");
+      if (!btn || quizAnswered || quizIndex >= quizList.length) return;
+
+      quizAnswered = true;
+      const current = quizList[quizIndex];
+      const selectedChoice = btn.getAttribute("data-choice");
+      const isCorrect = selectedChoice === current.a;
+
+      if (!statsMap[current.key]) {
+        statsMap[current.key] = { attempts: 0, correct: 0 };
+      }
+      statsMap[current.key].attempts += 1;
+      if (isCorrect) {
+        statsMap[current.key].correct += 1;
+        quizScore += 1;
+      }
+      safeStorage.set(LS_KEYS.stats, JSON.stringify(statsMap));
+      pushProgressToCloud();
+
+      document.querySelectorAll(".quiz-option").forEach(optBtn => {
+        const val = optBtn.getAttribute("data-choice");
+        optBtn.disabled = true;
+        if (val === current.a) {
+          optBtn.className = "quiz-option w-full text-left p-4 rounded-xl border-2 border-emerald-500 bg-emerald-50 text-sm font-bold text-emerald-950 transition";
+        } else if (val === selectedChoice && !isCorrect) {
+          optBtn.className = "quiz-option w-full text-left p-4 rounded-xl border-2 border-rose-500 bg-rose-50 text-sm font-bold text-rose-950 transition";
+        } else {
+          optBtn.className = "quiz-option w-full text-left p-4 rounded-xl border border-slate-200 bg-slate-50 opacity-50 text-sm font-medium text-slate-600 transition";
+        }
+      });
+
+      document.getElementById("quizScoreText").textContent = `${quizScore} / ${quizIndex + 1}`;
+      document.getElementById("quizNextBtn").disabled = false;
+    });
+
+    document.getElementById("quizNextBtn").addEventListener("click", () => {
+      quizIndex++;
+      renderQuizQuestion();
+    });
+
+    document.getElementById("quizRestartBtn").addEventListener("click", () => {
+      startQuiz(getFilteredItems());
+    });
+
+    document.getElementById("unmasteredOnlyBtn").addEventListener("click", () => {
+      unmasteredOnly = !unmasteredOnly;
+      const btn = document.getElementById("unmasteredOnlyBtn");
+      btn.textContent = `🎯 Unmastered Only: ${unmasteredOnly ? "ON" : "OFF"}`;
+      btn.className = unmasteredOnly
+        ? "px-2.5 py-1 rounded-lg text-xs font-bold border border-indigo-400 bg-indigo-100 text-indigo-900 transition"
+        : "px-2.5 py-1 rounded-lg text-xs font-semibold border border-slate-300 bg-slate-50 text-slate-700 hover:bg-slate-100 transition";
+      startQuiz(getFilteredItems());
+    });
+
+    // VIEW 3: CHAPTER & TOPIC PROGRESS TRACKER
+    function renderProgressTracker() {
+      const heading = document.getElementById("trackerSubjectHeading");
+      const subtext = document.getElementById("trackerSubjectSubtext");
+      const grid = document.getElementById("trackerChaptersGrid");
+
+      const topics = studyDb[selectedSubject] || [];
+      const doneCount = topics.filter(t => getChapterProgressStats(selectedSubject, t).isComplete).length;
+      const remaining = topics.length - doneCount;
+
+      heading.textContent = `${selectedSubject} — Chapter Progress`;
+      subtext.textContent = `${doneCount} of ${topics.length} chapters completed • ${remaining} remaining`;
+
+      if (topics.length === 0) {
+        grid.innerHTML = `<div class="col-span-full bg-white rounded-2xl border border-slate-200 p-8 text-center text-sm text-slate-500">No chapters found in this subject.</div>`;
+        return;
+      }
+
+      grid.innerHTML = topics.map(t => {
+        const stats = getChapterProgressStats(selectedSubject, t);
+        const chKey = makeChapterKey(selectedSubject, t.topic);
+
+        let statusBadge = `<span class="px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-slate-100 text-slate-600">Not Started</span>`;
+        let barColor = "bg-slate-300";
+        if (stats.isComplete) {
+          statusBadge = `<span class="px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-emerald-100 text-emerald-800">✅ Completed</span>`;
+          barColor = "bg-emerald-500";
+        } else if (stats.isStarted) {
+          statusBadge = `<span class="px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-amber-100 text-amber-800">⏳ In Progress</span>`;
+          barColor = "bg-amber-500";
+        }
+
+        return `
+          <div class="bg-white rounded-2xl border ${stats.isComplete ? "border-emerald-200" : "border-slate-200"} shadow-sm p-5 flex flex-col justify-between gap-4">
+            <div class="space-y-2.5">
+              <div class="flex items-start justify-between gap-2">
+                <h3 class="font-bold text-slate-900 text-sm sm:text-base leading-snug">${escapeHtml(t.topic)}</h3>
+                ${statusBadge}
+              </div>
+
+              <div class="w-full h-2 rounded-full bg-slate-100 overflow-hidden">
+                <div class="h-full ${barColor} transition-all duration-300" style="width: ${stats.pct}%"></div>
+              </div>
+
+              <div class="flex items-center justify-between text-xs text-slate-500">
+                <span>Mastered: <strong class="text-slate-800">${stats.mastered} / ${stats.total}</strong> items</span>
+                <span>Quiz Accuracy: <strong class="text-slate-800">${stats.accuracy}%</strong></span>
+              </div>
+            </div>
+
+            <div class="pt-3 border-t border-slate-100 flex flex-wrap items-center justify-between gap-2">
+              <div class="flex items-center gap-1.5">
+                <button type="button" data-tracker-action="study" data-topic="${escapeHtml(t.topic)}"
+                  class="px-3 py-1.5 rounded-xl text-xs font-semibold bg-slate-100 hover:bg-slate-200 text-slate-700 transition">
+                  📖 Read
+                </button>
+                <button type="button" data-tracker-action="quiz" data-topic="${escapeHtml(t.topic)}"
+                  class="px-3 py-1.5 rounded-xl text-xs font-semibold bg-indigo-50 hover:bg-indigo-100 text-indigo-700 transition">
+                  🎯 Quiz
+                </button>
+              </div>
+
+              <button type="button" data-tracker-action="toggle-done" data-chkey="${escapeHtml(chKey)}"
+                class="px-3 py-1.5 rounded-xl text-xs font-semibold border transition ${
+                  stats.isManuallyDone
+                    ? "bg-emerald-50 border-emerald-200 text-emerald-700 hover:bg-rose-50 hover:border-rose-200 hover:text-rose-700"
+                    : "bg-white border-slate-300 text-slate-700 hover:bg-emerald-50 hover:border-emerald-300 hover:text-emerald-700"
+                }">
+                ${stats.isManuallyDone ? "✅ Done (Undo)" : "Mark Done"}
+              </button>
+            </div>
+          </div>
+        `;
+      }).join("");
+    }
+
+    document.getElementById("trackerChaptersGrid").addEventListener("click", (e) => {
+      const btn = e.target.closest("[data-tracker-action]");
+      if (!btn) return;
+      const action = btn.getAttribute("data-tracker-action");
+
+      if (action === "toggle-done") {
+        const chKey = btn.getAttribute("data-chkey");
+        if (completedChaptersMap[chKey]) {
+          delete completedChaptersMap[chKey];
+        } else {
+          completedChaptersMap[chKey] = true;
+        }
+        safeStorage.set(LS_KEYS.chaptersDone, JSON.stringify(completedChaptersMap));
+        pushProgressToCloud();
+        populateChapters();
+      } else if (action === "study") {
+        selectedChapter = btn.getAttribute("data-topic");
+        chapterSelect.value = selectedChapter;
+        switchMode("revision");
+      } else if (action === "quiz") {
+        selectedChapter = btn.getAttribute("data-topic");
+        chapterSelect.value = selectedChapter;
+        switchMode("quiz");
+      }
+    });
+
+    // VIEW 4: DIGITAL BOOK READER (Features 2, 3 & 4)
+    function applyBookComfortStyles() {
+      const surface = document.getElementById("bookPageSurface");
+      const contentBody = document.getElementById("bookContentBody");
+      const sizeLabel = document.getElementById("bookFontSizeLabel");
+      const familyBtn = document.getElementById("bookFontFamilyBtn");
+
+      sizeLabel.textContent = `${bookPrefs.fontSize}px`;
+      contentBody.style.fontSize = `${bookPrefs.fontSize}px`;
+      contentBody.classList.toggle("font-book-serif", !!bookPrefs.serif);
+      familyBtn.textContent = bookPrefs.serif ? "Aa Sans" : "Aa Serif";
+
+      surface.classList.remove("bg-white", "text-slate-900", "border-slate-200", "bg-[#f6eedc]", "text-[#3b2f1e]", "border-[#e2d4b7]", "bg-slate-900", "text-slate-100", "border-slate-700");
+      if (bookPrefs.theme === "sepia") {
+        surface.classList.add("bg-[#f6eedc]", "text-[#3b2f1e]", "border-[#e2d4b7]");
+      } else if (bookPrefs.theme === "dark") {
+        surface.classList.add("bg-slate-900", "text-slate-100", "border-slate-700");
+      } else {
+        surface.classList.add("bg-white", "text-slate-900", "border-slate-200");
+      }
+
+      document.querySelectorAll(".book-theme-btn").forEach(btn => {
+        const isCurrent = btn.getAttribute("data-book-theme") === bookPrefs.theme;
+        btn.className = isCurrent
+          ? "book-theme-btn px-2.5 py-1.5 rounded-lg text-xs font-semibold bg-white text-indigo-600 shadow-2xs transition"
+          : "book-theme-btn px-2.5 py-1.5 rounded-lg text-xs font-semibold text-slate-600 hover:text-slate-900 transition";
+      });
+    }
+
+    /**
+     * SMART 5-PATTERN ANSWER-SIDE MASKING ENGINE
+     * Ensures clues/labels ("Biggest Planet:", "1. Core:", "The Sun is...") stay visible
+     * while answers ("Jupiter", "Hydrogen (71%)", years, numbers, proper facts) get masked!
+     */
+    function maskAnswerSegment(segmentText, boldSpans) {
+      let html = escapeHtml(segmentText);
+      const validBolds = (boldSpans || [])
+        .filter(s => s && s.length >= 2 && segmentText.includes(s))
+        .sort((a, b) => b.length - a.length);
+
+      // 1. Mask explicit bold spans inside the answer segment
+      if (validBolds.length > 0) {
+        validBolds.forEach(span => {
+          const escSpan = escapeHtml(span);
+          html = html.split(escSpan).join(`<span class="cloze-blur" data-cloze="1" title="Tap to reveal">${escSpan}</span>`);
+        });
+        return html;
+      }
+
+      // 2. Mask quantitative anchors (dates, years, percentages, units, Articles/Schedules)
+      const quantRegex = /\b(\d{1,4}(?:[.,]\d+)?(?:\s*(?:million|billion|thousand|crore|lakh))?(?:\s*(?:km|m|cm|mm|kg|g|°C|°F|%|st|nd|rd|th|AD|BC|BCE|CE))?|Article\s+\d+[A-Z]?|Schedule\s+\d+|Part\s+[IVXLC]+)\b/g;
+      if (quantRegex.test(segmentText)) {
+        return html.replace(quantRegex, `<span class="cloze-blur" data-cloze="1" title="Tap to reveal">$1</span>`);
+      }
+
+      // 3. Mask clean answer value (splitting parenthetical notes if long explanation)
+      const parenMatch = segmentText.match(/^([^(]+?)(\s*\(([^)]+)\))$/);
+      if (parenMatch) {
+        const mainAns = parenMatch[1].trim();
+        const parenInner = parenMatch[3].trim();
+        const escMain = escapeHtml(mainAns);
+        const escParen = escapeHtml(parenInner);
+        // If parenthetical note is short/factual (<= 3 words or has digits), mask both separately; else keep long hint visible
+        if (parenInner.split(/\s+/).length <= 3 || /\d/.test(parenInner)) {
+          return `<span class="cloze-blur" data-cloze="1" title="Tap to reveal">${escMain}</span> (<span class="cloze-blur" data-cloze="1" title="Tap to reveal">${escParen}</span>)`;
+        }
+        return `<span class="cloze-blur" data-cloze="1" title="Tap to reveal">${escMain}</span> (${escParen})`;
+      }
+
+      // 4. Mask comma/and separated short items individually (e.g., "Hydrogen and Helium")
+      if (segmentText.length <= 90) {
+        return `<span class="cloze-blur" data-cloze="1" title="Tap to reveal">${html}</span>`;
+      }
+
+      return html;
+    }
+
+    function formatBookParagraphHtml(block) {
+      let raw = String(block.text || "");
+      // Extract any literal **markdown bold** phrases so they render cleanly
+      const mdBoldMatches = [];
+      raw = raw.replace(/\*\*(.+?)\*\*/g, (_, inner) => {
+        mdBoldMatches.push(inner.trim());
+        return inner;
+      });
+
+      const combinedBolds = Array.from(new Set([...(block.boldSpans || []), ...mdBoldMatches]))
+        .filter(s => s && s.length >= 2)
+        .sort((a, b) => b.length - a.length);
+
+      // Never mask H2 headings
+      if (block.type === "h2") {
+        return escapeHtml(raw);
+      }
+
+      // Normal reading mode (Mask Key Terms OFF)
+      if (!bookClozeMask) {
+        let html = escapeHtml(raw);
+        combinedBolds.forEach(span => {
+          const escSpan = escapeHtml(span);
+          html = html.split(escSpan).join(`<strong class="font-bold">${escSpan}</strong>`);
+        });
+        return html;
+      }
+
+      // Detect short, fully-bolded standalone sub-headings (e.g., "Key Solar System Superlatives") -> never mask
+      const isFullyBoldTitle =
+        block.type === "p" &&
+        raw.length <= 75 &&
+        !raw.includes(":") &&
+        !/\b(?:is|was|are|were|has|have)\b/i.test(raw) &&
+        combinedBolds.some(b => b.replace(/\s+/g, " ") === raw.replace(/\s+/g, " "));
+
+      if (isFullyBoldTitle) {
+        return `<strong class="font-bold text-indigo-500">${escapeHtml(raw)}</strong>`;
+      }
+
+      // Pattern 5: Standalone transition line ending with ":" (no answer after colon) -> keep visible
+      if (/:\s*$/.test(raw)) {
+        return `<strong class="font-bold">${escapeHtml(raw)}</strong>`;
+      }
+
+      // Pattern 1: "Clue / Label : Answer" or "Clue – Answer"
+      const labelMatch = raw.match(/^([^:–—→=]{2,65}[:–—→=])\s+(.+)$/);
+      if (labelMatch) {
+        const cluePart = labelMatch[1];
+        const answerPart = labelMatch[2];
+        return `<strong class="font-semibold">${escapeHtml(cluePart)}</strong> ${maskAnswerSegment(answerPart, combinedBolds)}`;
+      }
+
+      // Pattern 2: "Subject is/was/are/were/consists of/known as Predicate"
+      const verbMatch = raw.match(/^(.{2,45}?\b(?:is|was|are|were|has|have|consists of|composed of|known as|called)\b)\s+(.+)$/i);
+      if (verbMatch) {
+        const subjectLead = verbMatch[1];
+        const predicatePart = verbMatch[2];
+        // Filter out bold spans that only belonged to the leading subject
+        const predicateBolds = combinedBolds.filter(b => predicatePart.includes(b));
+        return `${escapeHtml(subjectLead)} ${maskAnswerSegment(predicatePart, predicateBolds)}`;
+      }
+
+      // Pattern 3 & 4: General sentence -> ignore bold spans in the first 2 words (topic label), mask mid/end bolds or numbers/proper nouns
+      const words = raw.split(/\s+/);
+      const leadingSnippet = words.slice(0, 2).join(" ");
+      const midEndBolds = combinedBolds.filter(b => !leadingSnippet.startsWith(b));
+
+      if (midEndBolds.length > 0) {
+        let html = escapeHtml(raw);
+        midEndBolds.forEach(span => {
+          const escSpan = escapeHtml(span);
+          html = html.split(escSpan).join(`<span class="cloze-blur" data-cloze="1" title="Tap to reveal">${escSpan}</span>`);
+        });
+        return html;
+      }
+
+      // Fallback: Mask numbers/dates/Articles or mid-sentence Capitalized Proper Nouns
+      let html = escapeHtml(raw);
+      const quantRegex = /\b(\d{1,4}(?:[.,]\d+)?(?:\s*(?:million|billion|thousand|crore|lakh))?(?:\s*(?:km|m|cm|mm|kg|g|°C|°F|%|st|nd|rd|th|AD|BC|BCE|CE))?|Article\s+\d+[A-Z]?|Schedule\s+\d+|Part\s+[IVXLC]+)\b/g;
+      if (quantRegex.test(raw)) {
+        return html.replace(quantRegex, `<span class="cloze-blur" data-cloze="1" title="Tap to reveal">$1</span>`);
+      }
+
+      // Mid-sentence Proper Nouns (capitalized words not at index 0)
+      const tokens = raw.split(/(\s+)/);
+      let seenWord = false;
+      return tokens.map(tok => {
+        if (/^\s+$/.test(tok)) return tok;
+        if (!seenWord) {
+          seenWord = true;
+          return escapeHtml(tok);
+        }
+        const cleanTok = tok.replace(/^[^\w]+|[^\w]+$/g, "");
+        if (/^[A-Z][a-zA-Z0-9-]{2,}$/.test(cleanTok) && !/^(The|And|For|With|From|Into|Over|Under|Between)$/.test(cleanTok)) {
+          return `<span class="cloze-blur" data-cloze="1" title="Tap to reveal">${escapeHtml(tok)}</span>`;
+        }
+        return escapeHtml(tok);
+      }).join("");
+    }
+
+    function saveCurrentBookBookmark(notify) {
+      if (!selectedBook) return;
+      bookBookmark = {
+        book: selectedBook,
+        chapterIdx: selectedBookChapterIdx,
+        scrollY: Math.round(window.scrollY || 0),
+        updatedAt: new Date().toISOString()
+      };
+      safeStorage.set(LS_KEYS.bookBookmark, JSON.stringify(bookBookmark));
+      pushProgressToCloud();
+      updateBookmarkButtonVisibility();
+      if (notify) showToast(`Bookmarked: ${selectedBook} (Ch. ${selectedBookChapterIdx + 1})`);
+    }
+
+    function updateBookmarkButtonVisibility() {
+      const resumeBtn = document.getElementById("bookResumeBookmarkBtn");
+      if (bookBookmark && bookBookmark.book && booksDb[bookBookmark.book]) {
+        resumeBtn.classList.remove("hidden");
+        resumeBtn.textContent = `🔖 Resume: ${bookBookmark.book} (Ch. ${bookBookmark.chapterIdx + 1})`;
+      } else {
+        resumeBtn.classList.add("hidden");
+      }
+    }
+
+    function renderBookReader() {
+      applyBookComfortStyles();
+      updateBookmarkButtonVisibility();
+
+      const subtitleBadge = document.getElementById("bookSubtitleBadge");
+      const heading = document.getElementById("bookChapterHeading");
+      const meta = document.getElementById("bookReadMeta");
+      const bodyEl = document.getElementById("bookContentBody");
+      const prevBtn = document.getElementById("bookPrevChapterBtn");
+      const nextBtn = document.getElementById("bookNextChapterBtn");
+      const counterEl = document.getElementById("bookChapterCounter");
+
+      const bookNames = Object.keys(booksDb);
+      if (bookNames.length === 0 || !selectedBook || !booksDb[selectedBook]) {
+        subtitleBadge.textContent = "Google Docs Book Reader";
+        heading.textContent = "No Books Connected Yet";
+        meta.textContent = "Setup Guide";
+        bodyEl.innerHTML = `
+          <div class="rounded-2xl border border-indigo-200 bg-indigo-50/70 text-slate-800 p-5 space-y-2 text-sm">
+            <p class="font-bold text-indigo-900">How to load your Google Doc books:</p>
+            <ol class="list-decimal list-inside space-y-1 text-slate-700">
+              <li>Create a tab named <code class="bg-white px-1.5 py-0.5 rounded font-semibold">_Books</code> in your Google Sheet.</li>
+              <li>Put your <strong>Book Name</strong> in Column A and your <strong>Google Doc URL</strong> in Column B.</li>
+              <li>Use <strong>Heading 1</strong> for Chapters inside your Google Doc (each Google Doc tab also becomes its own book!).</li>
+              <li>Click <strong>↻ Sync Sheet</strong> at the top right.</li>
+            </ol>
+          </div>
+        `;
+        prevBtn.disabled = true;
+        nextBtn.disabled = true;
+        counterEl.textContent = "0 Chapters";
+        return;
+      }
+
+      const chapters = booksDb[selectedBook] || [];
+      const chObj = chapters[selectedBookChapterIdx] || { chapter: "Empty Chapter", blocks: [] };
+      const blocks = chObj.blocks || [];
+
+      const totalWords = blocks.reduce((acc, b) => acc + (b.text ? b.text.split(/\s+/).length : 0), 0);
+      const readMins = Math.max(1, Math.round(totalWords / 200));
+
+      subtitleBadge.textContent = `📚 ${selectedBook}`;
+      heading.textContent = chObj.chapter;
+      meta.textContent = `~${readMins} min read • ${totalWords} words`;
+      counterEl.textContent = `Chapter ${selectedBookChapterIdx + 1} of ${chapters.length}`;
+      prevBtn.disabled = selectedBookChapterIdx <= 0;
+      nextBtn.disabled = selectedBookChapterIdx >= chapters.length - 1;
+
+      const qLower = searchQuery.toLowerCase();
+      let renderedCount = 0;
+
+      const htmlParts = blocks.map((block, bIdx) => {
+        const blockKey = `${selectedBook}::${chObj.chapter}::${bIdx}`;
+        const isHighlighted = !!bookHighlightsMap[blockKey];
+
+        if (bookHighlightsOnly && !isHighlighted && block.type !== "h2") return "";
+        if (qLower && !block.text.toLowerCase().includes(qLower)) return "";
+
+        renderedCount++;
+        const formattedText = formatBookParagraphHtml(block);
+        const indentLevel = Math.min(3, Math.max(0, Number(block.indent) || 0));
+        const indentStyle = indentLevel > 0 ? `style="margin-left: ${indentLevel * 1.4}rem;"` : "";
+
+        if (block.type === "h2") {
+          return `<h3 class="text-lg sm:text-xl font-bold pt-5 pb-1.5 text-indigo-500 border-b border-current/10">${formattedText}</h3>`;
+        }
+
+        const highlightClasses = isHighlighted
+          ? "bg-amber-300/25 border-l-4 border-amber-500 pl-3.5 py-2 rounded-r-xl"
+          : "pl-2 border-l-2 border-transparent hover:border-current/20 py-0.5";
+
+        const starBtn = `
+          <button type="button" data-book-highlight="${escapeHtml(blockKey)}" title="Highlight / Star point"
+            class="shrink-0 text-xs px-1.5 py-0.5 rounded opacity-55 hover:opacity-100 transition ${isHighlighted ? "text-amber-500 opacity-100 font-bold" : ""}">
+            ${isHighlighted ? "★" : "☆"}
+          </button>
+        `;
+
+        if (block.type === "li") {
+          const dotStyle = indentLevel > 0
+            ? "mt-2 w-1.5 h-1.5 rounded-full border border-indigo-500 shrink-0"
+            : "mt-2 w-1.5 h-1.5 rounded-full bg-indigo-500 shrink-0";
+          return `
+            <div ${indentStyle} class="flex items-start justify-between gap-2 ${highlightClasses}">
+              <div class="flex items-start gap-2.5">
+                <span class="${dotStyle}"></span>
+                <p class="leading-relaxed">${formattedText}</p>
+              </div>
+              ${starBtn}
+            </div>
+          `;
+        }
+
+        if (block.type === "ol") {
+          return `
+            <div ${indentStyle} class="flex items-start justify-between gap-2 ${highlightClasses}">
+              <div class="flex items-start gap-2">
+                <span class="font-bold text-indigo-500 shrink-0 min-w-[1.35rem]">${escapeHtml(block.marker || "•")}</span>
+                <p class="leading-relaxed">${formattedText}</p>
+              </div>
+              ${starBtn}
+            </div>
+          `;
+        }
+
+        return `
+          <div ${indentStyle} class="flex items-start justify-between gap-2 ${highlightClasses}">
+            <p class="leading-relaxed">${formattedText}</p>
+            ${starBtn}
+          </div>
+        `;
+      }).filter(Boolean);
+
+      if (renderedCount === 0) {
+        bodyEl.innerHTML = `<p class="text-sm opacity-65 py-8 text-center">No paragraphs match your current filter (${bookHighlightsOnly ? "Highlights Only" : "Search"}).</p>`;
+      } else {
+        bodyEl.innerHTML = htmlParts.join("");
+      }
+
+      countShown.textContent = renderedCount;
+      saveCurrentBookBookmark(false);
+    }
+
+    // Live Sync & Cloud Persistence
+    async function syncLiveBackend() {
+      setConnectionStatus("syncing", "Syncing Sheet...");
+      try {
+        const data = await callAppsScript({});
+        if (data && data.status === "success" && data.subjects) {
+          const subjectKeys = Object.keys(data.subjects);
+          if (subjectKeys.length > 0) {
+            studyDb = data.subjects;
+            safeStorage.set(LS_KEYS.db, JSON.stringify(studyDb));
+          }
+          if (data.books) {
+            booksDb = data.books;
+            safeStorage.set(LS_KEYS.books, JSON.stringify(booksDb));
+          }
+          if (data.progress) {
+            importanceMap = { ...importanceMap, ...(data.progress.importanceMap || {}) };
+            statsMap = { ...statsMap, ...(data.progress.statsMap || {}) };
+            completedChaptersMap = { ...completedChaptersMap, ...(data.progress.completedChaptersMap || {}) };
+            bookHighlightsMap = { ...bookHighlightsMap, ...(data.progress.bookHighlightsMap || {}) };
+            if (data.progress.bookBookmark) {
+              bookBookmark = data.progress.bookBookmark;
+              safeStorage.set(LS_KEYS.bookBookmark, JSON.stringify(bookBookmark));
+            }
+            safeStorage.set(LS_KEYS.imp, JSON.stringify(importanceMap));
+            safeStorage.set(LS_KEYS.stats, JSON.stringify(statsMap));
+            safeStorage.set(LS_KEYS.chaptersDone, JSON.stringify(completedChaptersMap));
+            safeStorage.set(LS_KEYS.bookHighlights, JSON.stringify(bookHighlightsMap));
+          }
+          populateSubjects();
+          const bookCount = Object.keys(booksDb).length;
+          setConnectionStatus("live", `Live (${subjectKeys.length} Sub • ${bookCount} Book${bookCount === 1 ? "" : "s"})`);
+          showToast("Synced latest Sheets & Google Docs!");
+        } else if (data && data.status === "error") {
+          setConnectionStatus("offline", "Script Error", `Apps Script error: ${data.message}`);
+        }
+      } catch (err) {
+        setConnectionStatus(
+          "offline",
+          "Offline / Preview Mode",
+          `Preview iframes may block external Google Scripts (${err.message}). Open this HTML file directly in Chrome or GitHub Pages for live sync.`
+        );
+      }
+    }
+
+    function pushProgressToCloud() {
+      try {
+        fetch(BACKEND_URL, {
+          method: "POST",
+          mode: "no-cors",
+          headers: { "Content-Type": "text/plain" },
+          body: JSON.stringify({
+            importanceMap,
+            statsMap,
+            completedChaptersMap,
+            bookHighlightsMap,
+            bookBookmark
+          })
+        }).catch(() => {});
+      } catch (e) {}
+    }
+
+    // Mode Switching Helper
+    function switchMode(mode) {
+      const prevMode = activeMode;
+      activeMode = mode;
+      const tabs = {
+        revision: { btn: document.getElementById("tabRevisionBtn"), view: document.getElementById("revisionView") },
+        quiz: { btn: document.getElementById("tabQuizBtn"), view: document.getElementById("quizView") },
+        book: { btn: document.getElementById("tabBookBtn"), view: document.getElementById("bookReaderView") },
+        tracker: { btn: document.getElementById("tabTrackerBtn"), view: document.getElementById("trackerView") }
+      };
+
+      Object.keys(tabs).forEach(k => {
+        if (k === mode) {
+          tabs[k].btn.className = "px-4 py-2 rounded-lg text-xs sm:text-sm font-semibold bg-white text-indigo-600 shadow-sm transition";
+          tabs[k].view.classList.remove("hidden");
+        } else {
+          tabs[k].btn.className = "px-4 py-2 rounded-lg text-xs sm:text-sm font-semibold text-slate-600 hover:text-slate-900 transition";
+          tabs[k].view.classList.add("hidden");
+        }
+      });
+
+      if (mode === "book" || prevMode === "book") {
+        populateSubjects();
+      } else {
+        renderCurrentView();
+      }
+    }
+
+    // Event Listeners
+    subjectSelect.addEventListener("change", (e) => {
+      if (activeMode === "book") {
+        selectedBook = e.target.value;
+        selectedBookChapterIdx = 0;
+        populateBooksDropdown();
+        return;
+      }
+      selectedSubject = e.target.value;
+      selectedChapter = "__ALL__";
+      populateChapters();
+    });
+
+    chapterSelect.addEventListener("change", (e) => {
+      if (activeMode === "book") {
+        selectedBookChapterIdx = parseInt(e.target.value, 10) || 0;
+        renderBookReader();
+        return;
+      }
+      selectedChapter = e.target.value;
+      renderCurrentView();
+    });
+
+    searchInput.addEventListener("input", (e) => {
+      searchQuery = e.target.value.trim();
+      renderCurrentView();
+    });
+
+    onlyImpBtn.addEventListener("click", () => {
+      onlyImportant = !onlyImportant;
+      onlyImpBtn.className = onlyImportant
+        ? "flex-1 px-3 py-2.5 rounded-xl text-xs font-bold border border-amber-400 bg-amber-100 text-amber-900 transition"
+        : "flex-1 px-3 py-2.5 rounded-xl text-xs font-semibold border border-slate-300 bg-slate-50 text-slate-700 hover:bg-slate-100 transition";
+      renderCurrentView();
+    });
+
+    revealAllBtn.addEventListener("click", () => {
+      revealAll = !revealAll;
+      revealAllBtn.textContent = revealAll ? "Hide All Answers" : "Show All Answers";
+      renderCurrentView();
+    });
+
+    revisionTableBody.addEventListener("click", (e) => {
+      const btn = e.target.closest("[data-action]");
+      if (!btn) return;
+      const action = btn.getAttribute("data-action");
+      const key = btn.getAttribute("data-key");
+
+      if (action === "star") {
+        importanceMap[key] = !importanceMap[key];
+        safeStorage.set(LS_KEYS.imp, JSON.stringify(importanceMap));
+        pushProgressToCloud();
+        renderCurrentView();
+      } else if (action === "toggle-ans") {
+        if (revealedSet.has(key)) {
+          revealedSet.delete(key);
+        } else {
+          revealedSet.add(key);
+        }
+        renderCurrentView();
+      }
+    });
+
+    document.getElementById("tabRevisionBtn").addEventListener("click", () => switchMode("revision"));
+    document.getElementById("tabQuizBtn").addEventListener("click", () => switchMode("quiz"));
+    document.getElementById("tabBookBtn").addEventListener("click", () => switchMode("book"));
+    document.getElementById("tabTrackerBtn").addEventListener("click", () => switchMode("tracker"));
+
+    // Book Reader Comfort, Bookmark & Active Reading Listeners
+    document.querySelectorAll(".book-theme-btn").forEach(btn => {
+      btn.addEventListener("click", () => {
+        bookPrefs.theme = btn.getAttribute("data-book-theme");
+        safeStorage.set(LS_KEYS.bookPrefs, JSON.stringify(bookPrefs));
+        applyBookComfortStyles();
+      });
+    });
+
+    document.getElementById("bookFontDecBtn").addEventListener("click", () => {
+      bookPrefs.fontSize = Math.max(13, (bookPrefs.fontSize || 17) - 1);
+      safeStorage.set(LS_KEYS.bookPrefs, JSON.stringify(bookPrefs));
+      applyBookComfortStyles();
+    });
+
+    document.getElementById("bookFontIncBtn").addEventListener("click", () => {
+      bookPrefs.fontSize = Math.min(26, (bookPrefs.fontSize || 17) + 1);
+      safeStorage.set(LS_KEYS.bookPrefs, JSON.stringify(bookPrefs));
+      applyBookComfortStyles();
+    });
+
+    document.getElementById("bookFontFamilyBtn").addEventListener("click", () => {
+      bookPrefs.serif = !bookPrefs.serif;
+      safeStorage.set(LS_KEYS.bookPrefs, JSON.stringify(bookPrefs));
+      applyBookComfortStyles();
+    });
+
+    document.getElementById("bookHighlightsOnlyBtn").addEventListener("click", () => {
+      bookHighlightsOnly = !bookHighlightsOnly;
+      const btn = document.getElementById("bookHighlightsOnlyBtn");
+      btn.className = bookHighlightsOnly
+        ? "px-3 py-1.5 rounded-xl text-xs font-bold border border-amber-400 bg-amber-100 text-amber-900 transition"
+        : "px-3 py-1.5 rounded-xl text-xs font-semibold border border-slate-200 bg-slate-50 hover:bg-slate-100 text-slate-700 transition";
+      renderBookReader();
+    });
+
+    document.getElementById("bookClozeMaskBtn").addEventListener("click", () => {
+      bookClozeMask = !bookClozeMask;
+      const btn = document.getElementById("bookClozeMaskBtn");
+      btn.textContent = `👁 Mask Key Terms: ${bookClozeMask ? "ON" : "OFF"}`;
+      btn.className = bookClozeMask
+        ? "px-3 py-1.5 rounded-xl text-xs font-bold border border-indigo-400 bg-indigo-100 text-indigo-900 transition"
+        : "px-3 py-1.5 rounded-xl text-xs font-semibold border border-slate-200 bg-slate-50 hover:bg-slate-100 text-slate-700 transition";
+      renderBookReader();
+    });
+
+    document.getElementById("saveBookmarkNowBtn").addEventListener("click", () => {
+      saveCurrentBookBookmark(true);
+    });
+
+    document.getElementById("bookResumeBookmarkBtn").addEventListener("click", () => {
+      if (!bookBookmark || !booksDb[bookBookmark.book]) return;
+      selectedBook = bookBookmark.book;
+      selectedBookChapterIdx = bookBookmark.chapterIdx || 0;
+      const savedScroll = bookBookmark.scrollY || 0;
+      populateBooksDropdown();
+      setTimeout(() => window.scrollTo({ top: savedScroll, behavior: "smooth" }), 60);
+      showToast(`Resumed ${selectedBook} • Ch. ${selectedBookChapterIdx + 1}`);
+    });
+
+    document.getElementById("bookContentBody").addEventListener("click", (e) => {
+      const clozeEl = e.target.closest("[data-cloze]");
+      if (clozeEl) {
+        clozeEl.classList.toggle("revealed");
+        return;
+      }
+      const starBtn = e.target.closest("[data-book-highlight]");
+      if (starBtn) {
+        const key = starBtn.getAttribute("data-book-highlight");
+        if (bookHighlightsMap[key]) {
+          delete bookHighlightsMap[key];
+        } else {
+          bookHighlightsMap[key] = true;
+        }
+        safeStorage.set(LS_KEYS.bookHighlights, JSON.stringify(bookHighlightsMap));
+        pushProgressToCloud();
+        renderBookReader();
+      }
+    });
+
+    document.getElementById("bookPrevChapterBtn").addEventListener("click", () => {
+      if (selectedBookChapterIdx > 0) {
+        selectedBookChapterIdx--;
+        chapterSelect.value = String(selectedBookChapterIdx);
+        renderBookReader();
+        window.scrollTo({ top: 0, behavior: "smooth" });
+      }
+    });
+
+    document.getElementById("bookNextChapterBtn").addEventListener("click", () => {
+      const chapters = booksDb[selectedBook] || [];
+      if (selectedBookChapterIdx < chapters.length - 1) {
+        selectedBookChapterIdx++;
+        chapterSelect.value = String(selectedBookChapterIdx);
+        renderBookReader();
+        window.scrollTo({ top: 0, behavior: "smooth" });
+      }
+    });
+
+    // Mark All Chapters Done in Current Subject
+    document.getElementById("markAllChaptersBtn").addEventListener("click", () => {
+      const topics = studyDb[selectedSubject] || [];
+      topics.forEach(t => {
+        completedChaptersMap[makeChapterKey(selectedSubject, t.topic)] = true;
+      });
+      safeStorage.set(LS_KEYS.chaptersDone, JSON.stringify(completedChaptersMap));
+      pushProgressToCloud();
+      populateChapters();
+      showToast(`Marked all chapters in ${selectedSubject} as Done!`);
+    });
+
+    // 2-Click Inline Reset Subject Progress (No browser confirm() popups)
+    document.getElementById("resetSubjectProgressBtn").addEventListener("click", () => {
+      const btn = document.getElementById("resetSubjectProgressBtn");
+      if (!resetConfirmPending) {
+        resetConfirmPending = true;
+        btn.textContent = "⚠ Click Again to Confirm Reset";
+        btn.className = "px-3.5 py-2 rounded-xl text-xs font-bold bg-rose-600 text-white border border-rose-700 shadow-sm transition";
+        clearTimeout(resetConfirmTimer);
+        resetConfirmTimer = setTimeout(() => {
+          resetConfirmPending = false;
+          btn.textContent = "↻ Reset Subject Progress";
+          btn.className = "px-3.5 py-2 rounded-xl text-xs font-semibold bg-rose-50 hover:bg-rose-100 text-rose-700 border border-rose-200 transition";
+        }, 4000);
+        return;
+      }
+
+      resetConfirmPending = false;
+      clearTimeout(resetConfirmTimer);
+      btn.textContent = "↻ Reset Subject Progress";
+      btn.className = "px-3.5 py-2 rounded-xl text-xs font-semibold bg-rose-50 hover:bg-rose-100 text-rose-700 border border-rose-200 transition";
+
+      const prefix = `${selectedSubject}::`;
+      Object.keys(completedChaptersMap).forEach(k => {
+        if (k.startsWith(prefix)) delete completedChaptersMap[k];
+      });
+      Object.keys(statsMap).forEach(k => {
+        if (k.startsWith(prefix)) delete statsMap[k];
+      });
+
+      safeStorage.set(LS_KEYS.chaptersDone, JSON.stringify(completedChaptersMap));
+      safeStorage.set(LS_KEYS.stats, JSON.stringify(statsMap));
+      pushProgressToCloud();
+      populateChapters();
+      showToast(`Reset all progress for ${selectedSubject}.`);
+    });
+
+    document.getElementById("syncBtn").addEventListener("click", syncLiveBackend);
+    document.getElementById("retrySyncBtn").addEventListener("click", syncLiveBackend);
+
+    // Always start locked on page load
+    window.addEventListener("DOMContentLoaded", () => {
+      lockApp();
+    });
+  </script>
+</body>
+</html>
