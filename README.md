@@ -1,0 +1,2 @@
+# jubilant-app
+Study app
